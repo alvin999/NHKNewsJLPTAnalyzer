@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environment
+venv/
+.venv/
+env/
+
+# Distribution / Packaging
+dist/
+build/
+*.egg-info/
+
+# Streamlit
+.streamlit/
+
+# Playwright
+test-results/
+
+# VS Code
+.vscode/
+
+# Project Data (Cache & Local files)
+data/latest_articles.csv
+# 如果不希望上傳 JLPT 單字庫，請取消下一行的註解
+# data/jlpt_vocab.csv
+
+# OS
+.DS_Store
+Thumbs.db

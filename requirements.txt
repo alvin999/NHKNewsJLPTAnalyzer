@@ -1,0 +1,10 @@
+streamlit
+pandas
+requests
+beautifulsoup4
+sudachipy
+sudachidict_full
+googletrans==4.0.0-rc1
+plotly
+playwright
+playwright-stealth
