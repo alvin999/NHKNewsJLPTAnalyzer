@@ -61,8 +61,8 @@ def fetch_article_full_text(url):
                 print(f"ℹ️ 未發現彈窗或按鈕已失效: {e}")
 
             # --- 模擬捲動觸發 Lazy Loading ---
-            page.mouse.wheel(0, 1500)
-            page.wait_for_timeout(2000)
+            #page.mouse.wheel(0, 1500)
+            #page.wait_for_timeout(2000)
             # --- 核心簡化：將 HTML 轉交給 BeautifulSoup ---
             html_content = page.content()
             
