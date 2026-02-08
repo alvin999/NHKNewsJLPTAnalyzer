@@ -17,8 +17,47 @@ def load_data():
 
 @st.cache_data
 def load_vocab():
-    # 這裡讀取你 data/jlpt_vocab.csv
-    return pd.read_csv("data/jlpt_vocab.csv")
+    raw_url = "https://raw.githubusercontent.com/Bluskyo/JLPT_Vocabulary/main/data/results/JLPTWords.csv"
+    
+    try:
+        with st.spinner('📡 正在從線上同步 JLPT 全級別字彙庫...'):
+            # 直接讀取線上 CSV
+            df = pd.read_csv(raw_url)
+            
+            # 1. 強制清理欄位名稱：去除首尾空白並轉為小寫
+            # 這樣無論 CSV 是 "Word" 還是 "word" 都能對齊
+            df.columns = df.columns.str.strip().str.lower()
+            
+            # 2. 定義對應關係（將我們代碼用的 'word' 對應到 CSV 的 'word'）
+            # 根據你提供的結構，我們需要的是 'word' 和 'jlptlevel'
+            if 'word' in df.columns and 'jlptlevel' in df.columns:
+                # 重新命名以便後續代碼統一使用
+                df = df.rename(columns={'jlptlevel': 'level'})
+            else:
+                # 萬一標題完全對不上，回傳錯誤訊息
+                st.error(f"❌ CSV 結構不符。現有欄位: {list(df.columns)}")
+                return pd.DataFrame(columns=['word', 'level'])
+            
+            # 3. 數據清洗
+            df['word'] = df['word'].astype(str).str.strip()
+            df['level'] = df['level'].astype(str).str.strip()
+            
+            # 4. 格式標準化：確保 Level 顯示為 N1, N2...
+            # 有些資料會存成 "1" 或 "n1"，我們統一轉換
+            def format_level(lv):
+                lv = lv.upper()
+                return lv if lv.startswith('N') else f"N{lv}"
+            
+            df['level'] = df['level'].apply(format_level)
+            
+            # 5. 移除重複項，確保每個單字只有一個難度分級
+            df = df.drop_duplicates(subset=['word'], keep='first')
+            
+            return df[['word', 'level']]
+            
+    except Exception as e:
+        st.error(f"❌ 線上詞庫載入失敗: {e}")
+        return pd.DataFrame(columns=['word', 'level'])
 
 df_news = load_data()
 df_vocab = load_vocab()
