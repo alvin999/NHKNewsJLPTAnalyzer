@@ -1,4 +1,6 @@
 import streamlit as st
+import json
+import os
 import pandas as pd
 from app.translator import translate_text
 from app.analyzer import analyze_jlpt_level
@@ -9,11 +11,20 @@ from backend.crawl import fetch_article_full_text
 st.set_page_config(page_title="NHK News JLPT Analyzer", layout="wide")
 st.title("🇯🇵 NHK News JLPT 學習分析器")
 
-# 2. 載入資料 (模擬讀取 GitHub Actions 抓下來的 CSV)
+# 2. 載入資料
 @st.cache_data
 def load_data():
-    # 這裡讀取你 data/latest_articles.csv
-    return pd.read_csv("data/latest_articles.csv")
+    file_path = "data/news_db.json"
+    if not os.path.exists(file_path):
+        return pd.DataFrame()
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            # 將 JSON (Dict) 轉為 DataFrame 以便操作，並處理空資料情況
+            return pd.DataFrame.from_dict(data, orient='index') if data else pd.DataFrame()
+    except Exception as e:
+        print(f"❌ 讀取資料庫失敗: {e}")
+        return pd.DataFrame()
 
 @st.cache_data
 def load_vocab():
@@ -62,54 +73,86 @@ def load_vocab():
 df_news = load_data()
 df_vocab = load_vocab()
 
-# 3. 側邊欄：選擇新聞
-st.sidebar.header("新聞選擇")
-news_titles = df_news['title'].tolist()
-selected_title = st.sidebar.selectbox("請選擇一篇新聞", news_titles)
-current_article = df_news[df_news['title'] == selected_title].iloc[0]
+# 3. 側邊欄：功能選單
+st.sidebar.header("功能選單")
+app_mode = st.sidebar.radio("請選擇模式", ["NHK 新聞閱讀", "自訂文章分析"])
 
-# --- 核心邏輯：即時獲取內文 ---
-@st.cache_data(show_spinner="正在擷取日本 NHK 完整內文...")
-def get_full_content(url):
-    return fetch_article_full_text(url)
+if app_mode == "NHK 新聞閱讀":
+    if df_news.empty:
+        st.warning("目前沒有新聞資料，請先執行 `python sync_news.py` 進行同步。")
+        st.stop()
 
-paragraphs = get_full_content(current_article['url'])
-full_text = "".join(paragraphs) # 用於 JLPT 分析
+    # 根據 timestamp 排序 (最新的在最上面)
+    if 'timestamp' in df_news.columns:
+        df_news = df_news.sort_values('timestamp', ascending=False)
 
-# 4. 主畫面佈局
-col1, col2 = st.columns([1, 1])
+    news_titles = df_news['title'].tolist()
+    selected_title = st.sidebar.selectbox("請選擇一篇新聞", news_titles)
+    current_article = df_news[df_news['title'] == selected_title].iloc[0]
 
-with col1:
-    st.subheader("📰 新聞原文 (完整版)")
-    
-    if 'translations' not in st.session_state:
-        st.session_state.translations = {}
+    # --- 核心邏輯：即時獲取內文 ---
+    # 優先使用資料庫中的內容，如果沒有才即時抓取 (理論上 sync_news 跑過後都會有)
+    paragraphs = current_article['content'] if 'content' in current_article else fetch_article_full_text(current_article['url'])
+    full_text = "".join(paragraphs) # 用於 JLPT 分析
 
-    for i, para in enumerate(paragraphs):
-        st.write(para)
-        # 每段提供翻譯按鈕
-        if st.button(f"翻譯第 {i+1} 段", key=f"btn_{i}"):
-            with st.spinner("翻譯中..."):
-                translated = translate_text(para)
-                st.session_state.translations[i] = translated
+    # 4. 主畫面佈局
+    col1, col2 = st.columns([1, 1])
+
+    with col1:
+        st.subheader("📰 新聞原文 (完整版)")
         
-        if i in st.session_state.translations:
-            st.info(st.session_state.translations[i])
+        if 'translations' not in st.session_state:
+            st.session_state.translations = {}
 
-with col2:
-    st.subheader("📊 JLPT 全文難度分析")
-    # 使用完整的內文進行分析
-    level_stats = analyze_jlpt_level(full_text, df_vocab)
+        for i, para in enumerate(paragraphs):
+            st.write(para)
+            # 每段提供翻譯按鈕
+            if st.button(f"翻譯第 {i+1} 段", key=f"btn_{i}"):
+                with st.spinner("翻譯中..."):
+                    translated = translate_text(para)
+                    st.session_state.translations[i] = translated
+            
+            if i in st.session_state.translations:
+                st.info(st.session_state.translations[i])
+
+    with col2:
+        st.subheader("📊 JLPT 全文難度分析")
+        # 使用完整的內文進行分析
+        level_stats = analyze_jlpt_level(full_text, df_vocab)
+        
+        fig = px.pie(values=level_stats.values, names=level_stats.index, 
+                     title="全文單字難度分佈",
+                     color_discrete_sequence=px.colors.sequential.RdBu)
+        st.plotly_chart(fig, width='stretch')
+        
+        # 顯示指標
+        total_words = level_stats.sum()
+        n3_up_ratio = (level_stats[['N1', 'N2', 'N3']].sum() / total_words * 100) if total_words > 0 else 0
+        st.metric("N3 以上難度占比", f"{n3_up_ratio:.1f}%")
+
+elif app_mode == "自訂文章分析":
+    st.subheader("📝 自訂文章分析")
+    user_text = st.text_area("請在此貼上日文文章：", height=300, placeholder="請輸入日文文章...")
     
-    fig = px.pie(values=level_stats.values, names=level_stats.index, 
-                 title="全文單字難度分佈",
-                 color_discrete_sequence=px.colors.sequential.RdBu)
-    st.plotly_chart(fig, width='stretch')
-    
-    # 顯示指標
-    total_words = level_stats.sum()
-    n3_up_ratio = (level_stats[['N1', 'N2', 'N3']].sum() / total_words * 100) if total_words > 0 else 0
-    st.metric("N3 以上難度占比", f"{n3_up_ratio:.1f}%")
+    if st.button("開始分析") and user_text:
+        col1, col2 = st.columns([1, 1])
+        
+        with col1:
+            st.subheader("原文")
+            st.write(user_text)
+            
+        with col2:
+            st.subheader("📊 JLPT 難度分析")
+            level_stats = analyze_jlpt_level(user_text, df_vocab)
+            
+            fig = px.pie(values=level_stats.values, names=level_stats.index, 
+                         title="全文單字難度分佈",
+                         color_discrete_sequence=px.colors.sequential.RdBu)
+            st.plotly_chart(fig, width='stretch')
+            
+            total_words = level_stats.sum()
+            n3_up_ratio = (level_stats[['N1', 'N2', 'N3']].sum() / total_words * 100) if total_words > 0 else 0
+            st.metric("N3 以上難度占比", f"{n3_up_ratio:.1f}%")
 
 st.divider()
 st.caption("資料來源：NHK News Web. 本系統僅供學習使用。")

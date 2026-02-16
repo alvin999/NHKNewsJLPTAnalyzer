@@ -45,11 +45,6 @@ def fetch_nhk_news():
         return pd.DataFrame()
 
 def fetch_article_full_text(url):
-    paragraphs = []
-    # 建立除錯截圖資料夾
-    debug_dir = "debug_steps"
-    if not os.path.exists(debug_dir):
-        os.makedirs(debug_dir)
     try:
         with sync_playwright() as p:
             # 1. 模擬 Codegen 的啟動環境
