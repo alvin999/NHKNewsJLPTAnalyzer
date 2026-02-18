@@ -1,10 +1,10 @@
 streamlit
 pandas
-requests
 beautifulsoup4
 sudachipy
 sudachidict_full
 googletrans==4.0.0-rc1
 plotly
 playwright
-playwright-stealth
+playwright-stealth==1.0.6
+setuptools==69.5.1

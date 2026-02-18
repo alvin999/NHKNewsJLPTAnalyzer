@@ -92,7 +92,16 @@ if app_mode == "NHK 新聞閱讀":
 
     # --- 核心邏輯：即時獲取內文 ---
     # 優先使用資料庫中的內容，如果沒有才即時抓取 (理論上 sync_news 跑過後都會有)
-    paragraphs = current_article['content'] if 'content' in current_article else fetch_article_full_text(current_article['url'])
+    if 'content' in current_article and current_article['content']:
+        paragraphs = current_article['content']
+    else:
+        # 嘗試即時抓取，但在 Streamlit Cloud 上可能會失敗，需做錯誤處理
+        try:
+            paragraphs = fetch_article_full_text(current_article['url'])
+        except Exception as e:
+            st.error(f"⚠️ 無法讀取內文，請稍後再試。(錯誤: {e})")
+            paragraphs = []
+            
     full_text = "".join(paragraphs) # 用於 JLPT 分析
 
     # 4. 主畫面佈局

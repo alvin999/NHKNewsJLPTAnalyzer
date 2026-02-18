@@ -1,11 +1,11 @@
-import requests
 import pandas as pd
 import os
+import subprocess
+import sys
 from bs4 import BeautifulSoup
 from playwright.sync_api import sync_playwright
 import urllib.request
 import json
-#from playwright_stealth import stealth
 
 def fetch_nhk_news():
     api_url = "https://www3.nhk.or.jp/news/json16/new_001.json"
@@ -13,7 +13,8 @@ def fetch_nhk_news():
     # 使用最極簡但有效的 Headers
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/121.0.0.0 Safari/537.36',
-        'Accept': 'application/json'
+        'Accept': 'application/json',
+        'Accept-Language': 'ja-JP,ja;q=0.9'
     }
     
     try:
@@ -48,22 +49,57 @@ def fetch_article_full_text(url):
     try:
         with sync_playwright() as p:
             # 1. 模擬 Codegen 的啟動環境
-            browser = p.chromium.launch(headless=True)
+            try:
+                # 改用 headless=True 並加入反偵測參數
+                browser = p.chromium.launch(
+                    headless=True,
+                    args=[
+                        "--headless=new",  # 關鍵：使用新版 Headless 模式，行為更像真實瀏覽器
+                        "--disable-blink-features=AutomationControlled", # 關鍵：隱藏 navigator.webdriver 標記
+                        "--no-sandbox",
+                        "--disable-dev-shm-usage", # 防止記憶體不足崩潰
+                        "--disable-extensions",
+                        "--disable-gpu",
+                        "--disable-infobars"
+                    ]
+                )
+            except Exception as e:
+                # 如果遇到瀏覽器未安裝的錯誤，嘗試自動安裝
+                if "Executable doesn't exist" in str(e):
+                    print("⚠️ 偵測到瀏覽器未安裝，正在自動執行 playwright install chromium...")
+                    subprocess.check_call([sys.executable, "-m", "playwright", "install", "chromium"])
+                    browser = p.chromium.launch(headless=True, args=["--headless=new", "--disable-blink-features=AutomationControlled"])
+                else:
+                    raise e
+
             context = browser.new_context(
-                viewport={'width': 1280, 'height': 800},
+                viewport={'width': 1920, 'height': 1080},
+                locale='ja-JP',
+                timezone_id='Asia/Tokyo',
+                geolocation={'latitude': 35.6895, 'longitude': 139.6917}, # 📍 設定為日本東京座標
+                permissions=['geolocation'], # ✅ 允許網站獲取位置資訊 (增加真實感)
                 user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
             )
+            
+            # 🕵️‍♂️ 注入 Stealth 腳本：徹底隱藏自動化特徵
+            context.add_init_script("""
+                Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
+            """)
+            
             page = context.new_page()
+            
             
             # 2. 前往網址
             page.goto(url, wait_until="domcontentloaded")
+
 
             # --- 關鍵修正：像 Codegen 一樣靈活應對 ---
             # 有些環境會跳出 1/2 層，有些直接跳 3 層。我們用 try-except 包起來。
             
             # 嘗試擊穿第 1 & 2 層 (如果有的話)
+            '''
             try:
-                if page.get_by_text("内容について確認しました").is_visible(timeout=3000):
+                if page.get_by_text("内容について確認しました").is_visible(timeout=1000):
                     page.get_by_text("内容について確認しました").click()
                     page.get_by_role("button", name="次へ").click()
                     page.wait_for_timeout(1000)
@@ -75,32 +111,39 @@ def fetch_article_full_text(url):
                     print("✅ 擊穿前兩層導覽")
             except:
                 print("ℹ️ 未偵測到前兩層，可能已跳過")
-
+            '''
             # 3. 擊穿第三層 (Codegen 錄到的那一步)
             try:
-                # 這裡使用 Codegen 產生的精確定位
                 target_btn = page.get_by_role("button", name="確認しました / I understand")
-                target_btn.wait_for(state="visible", timeout=5000)
-                target_btn.click()
-                print("✅ 成功執行 Codegen 錄製的點擊：確認しました / I understand")
+                
+                # 改為邊捲動邊偵測，模擬真人閱讀並觸發按鈕顯示
+                for _ in range(5):
+                    if target_btn.is_visible():
+                        break
+                    page.mouse.wheel(0, 1000) # 每次向下捲動 1000px
+
+                    page.wait_for_timeout(1000) # 等待 1 秒讓內容載入
+                
+                # 如果還沒找到，最後試一次直接到底
+                if not target_btn.is_visible():
+                    page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+                    page.wait_for_timeout(1000)
+
+                if target_btn.is_visible():
+                    target_btn.scroll_into_view_if_needed()
+                    target_btn.click(force=True)
+                    print("✅ 成功執行 Codegen 錄製的點擊：確認しました / I understand")
+
+                    # 關鍵修正：點擊後頁面會刷新或導航，必須等待載入完成
+                    page.wait_for_load_state("domcontentloaded")
+                    page.wait_for_timeout(2000)
             except Exception as e:
                 print(f"⚠️ 無法點擊第三層按鈕: {e}")
-
-            # 4. 最終確認：如果遮罩還在，暴力移除 (確保萬無一失)
-            page.wait_for_timeout(2000)
-            page.evaluate("""() => {
-                document.querySelectorAll('div').forEach(div => {
-                    const style = window.getComputedStyle(div);
-                    if (style.position === 'fixed' && parseInt(style.zIndex) > 50) div.remove();
-                });
-                document.body.style.overflow = 'auto';
-            }""")
 
             # 擷取內文
             html_content = page.content()
             browser.close()
             
-            from bs4 import BeautifulSoup
             soup = BeautifulSoup(html_content, 'html.parser')
             # 抓取新版內文標籤
             nodes = soup.find_all(['p', 'h3'], class_=['_1i1d7sh2', '_1i1d7sh9'])

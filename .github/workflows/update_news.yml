@@ -1,0 +1,40 @@
+name: Daily News Sync
+
+on:
+  schedule:
+    # 每天 UTC 時間 20:00 (台灣時間 04:00) 執行
+    - cron: '0 20 * * *'
+  workflow_dispatch: # 允許手動點擊按鈕觸發
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        playwright install chromium
+
+    - name: Run sync script
+      run: python sync_news.py
+
+    - name: Commit and push changes
+      run: |
+        git config --global user.name 'github-actions[bot]'
+        git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+        git add data/news_db.json
+        git commit -m "🤖 Auto-update news database" || echo "No changes to commit"
+        git push
