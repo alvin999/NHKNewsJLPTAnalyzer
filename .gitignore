@@ -22,9 +22,6 @@ test-results/
 # VS Code
 .vscode/
 
-# Project Data (Cache & Local files)
-data/
-
 # OS
 .DS_Store
 Thumbs.db

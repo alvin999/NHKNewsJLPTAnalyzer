@@ -97,7 +97,6 @@ def fetch_article_full_text(url):
             # 有些環境會跳出 1/2 層，有些直接跳 3 層。我們用 try-except 包起來。
             
             # 嘗試擊穿第 1 & 2 層 (如果有的話)
-            '''
             try:
                 if page.get_by_text("内容について確認しました").is_visible(timeout=1000):
                     page.get_by_text("内容について確認しました").click()
@@ -111,25 +110,34 @@ def fetch_article_full_text(url):
                     print("✅ 擊穿前兩層導覽")
             except:
                 print("ℹ️ 未偵測到前兩層，可能已跳過")
-            '''
             # 3. 擊穿第三層 (Codegen 錄到的那一步)
             try:
-                target_btn = page.get_by_role("button", name="確認しました / I understand")
+                # 定義定位器：文字 與 Class (增加容錯)
+                btn_text = page.get_by_role("button", name="確認しました / I understand")
+                btn_class = page.locator("button.esl7kn2s")
+                
+                target_btn = None
                 
                 # 改為邊捲動邊偵測，模擬真人閱讀並觸發按鈕顯示
                 for _ in range(5):
-                    if target_btn.is_visible():
+                    if btn_text.is_visible():
+                        target_btn = btn_text
+                        break
+                    if btn_class.is_visible():
+                        target_btn = btn_class
                         break
                     page.mouse.wheel(0, 1000) # 每次向下捲動 1000px
 
                     page.wait_for_timeout(1000) # 等待 1 秒讓內容載入
                 
                 # 如果還沒找到，最後試一次直接到底
-                if not target_btn.is_visible():
+                if not target_btn:
                     page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
                     page.wait_for_timeout(1000)
+                    if btn_text.is_visible(): target_btn = btn_text
+                    elif btn_class.is_visible(): target_btn = btn_class
 
-                if target_btn.is_visible():
+                if target_btn:
                     target_btn.scroll_into_view_if_needed()
                     target_btn.click(force=True)
                     print("✅ 成功執行 Codegen 錄製的點擊：確認しました / I understand")
