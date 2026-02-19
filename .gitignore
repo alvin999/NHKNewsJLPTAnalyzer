@@ -25,3 +25,6 @@ test-results/
 # OS
 .DS_Store
 Thumbs.db
+
+# Data
+data/news_db_test.json

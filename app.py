@@ -14,7 +14,12 @@ st.title("🇯🇵 NHK News JLPT 學習分析器")
 # 2. 載入資料
 @st.cache_data
 def load_data():
-    file_path = "data/news_db.json"
+    # 根據環境決定讀取哪一份資料庫
+    if os.getenv("GITHUB_ACTIONS"):
+        file_path = "data/news_db.json"
+    else:
+        file_path = "data/news_db_test.json"
+
     if not os.path.exists(file_path):
         return pd.DataFrame()
     try:
@@ -143,16 +148,34 @@ elif app_mode == "自訂文章分析":
     st.subheader("📝 自訂文章分析")
     user_text = st.text_area("請在此貼上日文文章：", height=300, placeholder="請輸入日文文章...")
     
+    # 初始化 Session State 以支援互動 (如翻譯)
+    if 'custom_analysis_text' not in st.session_state:
+        st.session_state.custom_analysis_text = ""
+    if 'custom_translation' not in st.session_state:
+        st.session_state.custom_translation = ""
+
     if st.button("開始分析") and user_text:
+        st.session_state.custom_analysis_text = user_text
+        st.session_state.custom_translation = "" # 重置翻譯
+
+    if st.session_state.custom_analysis_text:
+        target_text = st.session_state.custom_analysis_text
         col1, col2 = st.columns([1, 1])
         
         with col1:
             st.subheader("原文")
-            st.write(user_text)
+            st.write(target_text)
+            
+            if st.button("翻譯全文", key="btn_custom_trans"):
+                with st.spinner("翻譯中..."):
+                    st.session_state.custom_translation = translate_text(target_text)
+            
+            if st.session_state.custom_translation:
+                st.info(st.session_state.custom_translation)
             
         with col2:
             st.subheader("📊 JLPT 難度分析")
-            level_stats = analyze_jlpt_level(user_text, df_vocab)
+            level_stats = analyze_jlpt_level(target_text, df_vocab)
             
             fig = px.pie(values=level_stats.values, names=level_stats.index, 
                          title="全文單字難度分佈",

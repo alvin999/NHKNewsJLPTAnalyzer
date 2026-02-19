@@ -3,7 +3,11 @@ import os
 import time
 from backend.crawl import fetch_nhk_news, fetch_article_full_text
 
-DB_PATH = "data/news_db.json"
+# 根據環境決定資料庫路徑
+if os.getenv("GITHUB_ACTIONS"):
+    DB_PATH = "data/news_db.json"
+else:
+    DB_PATH = "data/news_db_test.json"
 
 def run_sync():
     print(f"📡 [{time.strftime('%H:%M:%S')}] 開始同步 NHK 新聞...")
