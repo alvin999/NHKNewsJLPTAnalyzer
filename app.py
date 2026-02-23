@@ -14,8 +14,9 @@ st.title("🇯🇵 NHK News JLPT 學習分析器")
 # 2. 載入資料
 @st.cache_data
 def load_data():
-    # 根據環境決定讀取哪一份資料庫
-    if os.getenv("GITHUB_ACTIONS"):
+    # 優先讀取正式資料庫 (news_db.json)，如果不存在才讀取測試資料庫
+    # 這樣在 Streamlit Cloud (會有 news_db.json) 也能正確讀取
+    if os.path.exists("data/news_db.json"):
         file_path = "data/news_db.json"
     else:
         file_path = "data/news_db_test.json"
