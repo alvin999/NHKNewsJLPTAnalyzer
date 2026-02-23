@@ -1,6 +1,10 @@
-# 🇯🇵 NHK News JLPT Analyzer (開發中)
+# 🇯🇵 NHK News JLPT Analyzer
 
 這是一個基於 Python 與 Streamlit 開發的日語學習輔助工具。它能夠自動爬取 NHK News Web 的最新新聞，並提供即時的中文翻譯以及 JLPT（日本語能力試驗）單字難度分析，幫助學習者更有效率地閱讀日文新聞。
+
+🔗 **線上展示 (Live Demo)**: [https://nhknewsjlptanalyzer-alvin999.streamlit.app/](https://nhknewsjlptanalyzer-alvin999.streamlit.app/)
+
+![App Screenshot](screenshots/screenshot1.png)
 
 ## ✨ 主要功能
 
@@ -14,7 +18,10 @@
 3.  **即時翻譯**：
     - 支援段落式翻譯（整合 Google Translate）。
     - 點擊按鈕即可查看特定段落的中文翻譯，方便對照學習。
-4.  **互動式介面**：
+4.  **自訂文章分析**：
+    - 支援使用者自行貼上日文文章。
+    - 提供全文翻譯與 JLPT 難度分析功能。
+5.  **互動式介面**：
     - 使用 Streamlit 建構，操作簡單直觀。
 
 ## 🛠️ 技術棧
@@ -43,10 +50,12 @@ NHKNewsJLPTAnalyzer/
 
 ## 🚀 快速開始
 
-### 1. 安裝依賴
+### 1. 環境設定與安裝
+
+本專案建議使用 **Python 3.9 ~ 3.12** (Python 3.13 以上版本暫不支援)。
 
 ```bash
-pip install streamlit pandas plotly playwright beautifulsoup4 sudachipy sudachidict_full googletrans==4.0.0-rc1 requests
+pip install -r requirements.txt
 ```
 
 ### 2. 設定環境
@@ -66,6 +75,5 @@ streamlit run app.py
 
 ## ⚠️ 注意事項
 
-- 本專案目前處於 **開發中 (WIP)** 階段。
 - **資料來源**：新聞內容來自 [NHK News Web](https://www3.nhk.or.jp/news/)。
 - **免責聲明**：本系統僅供個人日語學習與研究使用，請勿用於商業用途。
