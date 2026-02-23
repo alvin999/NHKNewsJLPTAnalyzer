@@ -9,6 +9,29 @@ from backend.crawl import fetch_article_full_text
 
 # 1. 頁面設定
 st.set_page_config(page_title="NHK News JLPT Analyzer", layout="wide")
+
+# CSS 美化樣式：調整側邊欄行距與視覺效果
+st.markdown("""
+<style>
+    /* 優化側邊欄 Radio Button 的選項顯示 */
+    .stRadio div[role="radiogroup"] > label {
+        padding: 12px 15px;      /* 增加內距，讓選項更寬敞 */
+        margin-bottom: 8px;      /* 增加選項之間的行距 */
+        border-radius: 8px;      /* 圓角設計 */
+        border: 1px solid rgba(128, 128, 128, 0.2); /* 增加輕微邊框 */
+        transition: background-color 0.3s;
+    }
+    /* 滑鼠懸停效果 */
+    .stRadio div[role="radiogroup"] > label:hover {
+        background-color: rgba(128, 128, 128, 0.1);
+    }
+    /* 調整側邊欄標題間距 */
+    section[data-testid="stSidebar"] .block-container {
+        padding-top: 2rem;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 st.title("🇯🇵 NHK News JLPT 學習分析器")
 
 # 2. 載入資料
@@ -81,9 +104,12 @@ df_vocab = load_vocab()
 
 # 3. 側邊欄：功能選單
 st.sidebar.header("功能選單")
-app_mode = st.sidebar.radio("請選擇模式", ["NHK 新聞閱讀", "自訂文章分析"])
 
-if app_mode == "NHK 新聞閱讀":
+MODE_NEWS = "📰 NHK 新聞閱讀"
+MODE_CUSTOM = "📝 自訂文章分析"
+app_mode = st.sidebar.radio("請選擇模式", [MODE_NEWS, MODE_CUSTOM])
+
+if app_mode == MODE_NEWS:
     if df_news.empty:
         st.warning("目前沒有新聞資料，請先執行 `python sync_news.py` 進行同步。")
         st.stop()
@@ -145,7 +171,7 @@ if app_mode == "NHK 新聞閱讀":
         n3_up_ratio = (level_stats[['N1', 'N2', 'N3']].sum() / total_words * 100) if total_words > 0 else 0
         st.metric("N3 以上難度占比", f"{n3_up_ratio:.1f}%")
 
-elif app_mode == "自訂文章分析":
+elif app_mode == MODE_CUSTOM:
     st.subheader("📝 自訂文章分析")
     user_text = st.text_area("請在此貼上日文文章：", height=300, placeholder="請輸入日文文章...")
     
