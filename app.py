@@ -99,6 +99,15 @@ def load_vocab():
         st.error(f"❌ 線上詞庫載入失敗: {e}")
         return pd.DataFrame(columns=['word', 'level'])
 
+def plot_jlpt_distribution(text, vocab_df):
+    """繪製 JLPT 難度分佈圓餅圖的共用函式"""
+    level_stats = analyze_jlpt_level(text, vocab_df)
+    fig = px.pie(values=level_stats.values, names=level_stats.index, 
+                 title="全文單字難度分佈",
+                 color_discrete_sequence=px.colors.sequential.RdBu)
+    st.plotly_chart(fig, width='stretch')
+    return level_stats
+
 df_news = load_data()
 df_vocab = load_vocab()
 
@@ -159,12 +168,7 @@ if app_mode == MODE_NEWS:
     with col2:
         st.subheader("📊 JLPT 全文難度分析")
         # 使用完整的內文進行分析
-        level_stats = analyze_jlpt_level(full_text, df_vocab)
-        
-        fig = px.pie(values=level_stats.values, names=level_stats.index, 
-                     title="全文單字難度分佈",
-                     color_discrete_sequence=px.colors.sequential.RdBu)
-        st.plotly_chart(fig, width='stretch')
+        level_stats = plot_jlpt_distribution(full_text, df_vocab)
         
         # 顯示指標
         total_words = level_stats.sum()
@@ -202,12 +206,7 @@ elif app_mode == MODE_CUSTOM:
             
         with col2:
             st.subheader("📊 JLPT 難度分析")
-            level_stats = analyze_jlpt_level(target_text, df_vocab)
-            
-            fig = px.pie(values=level_stats.values, names=level_stats.index, 
-                         title="全文單字難度分佈",
-                         color_discrete_sequence=px.colors.sequential.RdBu)
-            st.plotly_chart(fig, width='stretch')
+            level_stats = plot_jlpt_distribution(target_text, df_vocab)
             
             total_words = level_stats.sum()
             n3_up_ratio = (level_stats[['N1', 'N2', 'N3']].sum() / total_words * 100) if total_words > 0 else 0

@@ -35,9 +35,6 @@ def analyze_jlpt_level(text, vocab_df):
     # 取得斷詞原型
     tokens = [m.dictionary_form() for m in tokenizer_obj.tokenize(text, mode)]
     
-    # 強制轉換詞庫中的單字為字串，避免比對出錯
-    vocab_df['word'] = vocab_df['word'].astype(str)
-    
     # 進行過濾
     match_df = vocab_df[vocab_df['word'].isin(tokens)]
     
