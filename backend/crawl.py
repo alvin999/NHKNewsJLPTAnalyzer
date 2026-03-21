@@ -76,11 +76,6 @@ def setup_browser_context(p):
         context_kwargs['storage_state'] = state_path
 
     context = browser.new_context(**context_kwargs)
-    
-    # 🕵️‍♂️ 注入 Stealth 腳本：徹底隱藏自動化特徵
-    context.add_init_script("""
-        Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
-    """)
     return browser, context
 
 def bypass_nhk_modals(page):
