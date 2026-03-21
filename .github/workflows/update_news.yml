@@ -28,6 +28,14 @@ jobs:
         pip install -r requirements.txt
         playwright install chromium
 
+    - name: Cache Playwright State
+      uses: actions/cache@v3
+      with:
+        path: data/playwright_state.json
+        key: playwright-state-${{ runner.os }}-${{ github.run_id }}
+        restore-keys: |
+          playwright-state-${{ runner.os }}-
+ 
     - name: Run sync script
       run: python sync_news.py
 

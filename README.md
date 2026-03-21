@@ -6,7 +6,9 @@
 
 這是一個基於 Python 與 Streamlit 開發的日語學習輔助工具。它能夠自動爬取 NHK News Web 的最新新聞，並提供即時的中文翻譯以及 JLPT（日本語能力試驗）單字難度分析，幫助學習者更有效率地閱讀日文新聞。
 
-🔗 **線上展示 (Live Demo)**: [![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://nhknewsjlptanalyzer-alvin999.streamlit.app/)
+🔗 **線上展示 (Live Demo)**:
+
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://nhknewsjlptanalyzer-alvin999.streamlit.app/)
 
 ![App Screenshot](screenshots/screenshot1.png)
 

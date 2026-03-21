@@ -72,14 +72,19 @@ def fetch_article_full_text(url):
                 else:
                     raise e
 
-            context = browser.new_context(
-                viewport={'width': 1920, 'height': 1080},
-                locale='ja-JP',
-                timezone_id='Asia/Tokyo',
-                geolocation={'latitude': 35.6895, 'longitude': 139.6917}, # 📍 設定為日本東京座標
-                permissions=['geolocation'], # ✅ 允許網站獲取位置資訊 (增加真實感)
-                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
-            )
+            state_path = "data/playwright_state.json"
+            context_kwargs = {
+                'viewport': {'width': 1920, 'height': 1080},
+                'locale': 'ja-JP',
+                'timezone_id': 'Asia/Tokyo',
+                'geolocation': {'latitude': 35.6895, 'longitude': 139.6917}, # 📍 設定為日本東京座標
+                'permissions': ['geolocation'], # ✅ 允許網站獲取位置資訊 (增加真實感)
+                'user_agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
+            }
+            if os.path.exists(state_path):
+                context_kwargs['storage_state'] = state_path
+
+            context = browser.new_context(**context_kwargs)
             
             # 🕵️‍♂️ 注入 Stealth 腳本：徹底隱藏自動化特徵
             context.add_init_script("""
@@ -93,12 +98,12 @@ def fetch_article_full_text(url):
             page.goto(url, wait_until="domcontentloaded")
 
 
-            # --- 關鍵修正：像 Codegen 一樣靈活應對 ---
-            # 有些環境會跳出 1/2 層，有些直接跳 3 層。我們用 try-except 包起來。
+            # --- 關鍵修正：判斷是否已經有 Cookie，如果有則能極速通關 ---
+            has_state = os.path.exists(state_path)
             
             # 嘗試擊穿第 1 & 2 層 (如果有的話)
             try:
-                if page.get_by_text("内容について確認しました").is_visible(timeout=1000):
+                if page.get_by_text("内容について確認しました").is_visible():
                     page.get_by_text("内容について確認しました").click()
                     page.get_by_role("button", name="次へ").click()
                     page.wait_for_timeout(1000)
@@ -110,6 +115,7 @@ def fetch_article_full_text(url):
                     print("✅ 擊穿前兩層導覽")
             except:
                 print("ℹ️ 未偵測到前兩層，可能已跳過")
+                
             # 3. 擊穿第三層 (Codegen 錄到的那一步)
             try:
                 # 定義定位器：文字 與 Class (增加容錯)
@@ -118,38 +124,50 @@ def fetch_article_full_text(url):
                 
                 target_btn = None
                 
-                # 改為邊捲動邊偵測，模擬真人閱讀並觸發按鈕顯示
-                for _ in range(5):
-                    if btn_text.is_visible():
-                        target_btn = btn_text
-                        break
-                    if btn_class.is_visible():
-                        target_btn = btn_class
-                        break
-                    page.mouse.wheel(0, 1000) # 每次向下捲動 1000px
-
-                    page.wait_for_timeout(1000) # 等待 1 秒讓內容載入
-                
-                # 如果還沒找到，最後試一次直接到底
-                if not target_btn:
-                    page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-                    page.wait_for_timeout(1000)
-                    if btn_text.is_visible(): target_btn = btn_text
-                    elif btn_class.is_visible(): target_btn = btn_class
+                if btn_text.is_visible():
+                    target_btn = btn_text
+                elif btn_class.is_visible():
+                    target_btn = btn_class
+                elif not has_state:
+                    # ✅ 只有在「沒有載入過 Cookie」時，才需要花費 5 秒鐘向下捲動尋找按鈕
+                    print("⚠️ 尚未建立 Cookie，需要模擬捲動以尋找確認按鈕...")
+                    for _ in range(5):
+                        page.mouse.wheel(0, 1000)
+                        page.wait_for_timeout(1000)
+                        if btn_text.is_visible():
+                            target_btn = btn_text
+                            break
+                        if btn_class.is_visible():
+                            target_btn = btn_class
+                            break
+                    
+                    # 如果還沒找到，最後試一次直接到底
+                    if not target_btn:
+                        page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+                        page.wait_for_timeout(1000)
+                        if btn_text.is_visible(): target_btn = btn_text
+                        elif btn_class.is_visible(): target_btn = btn_class
 
                 if target_btn:
                     target_btn.scroll_into_view_if_needed()
                     target_btn.click(force=True)
-                    print("✅ 成功執行 Codegen 錄製的點擊：確認しました / I understand")
+                    print("✅ 成功執行點擊：確認しました / I understand")
 
                     # 關鍵修正：點擊後頁面會刷新或導航，必須等待載入完成
                     page.wait_for_load_state("domcontentloaded")
                     page.wait_for_timeout(2000)
+                else:
+                    print("ℹ️ 無需點擊第三層按鈕 (可能已透過 Cookie 略過)")
             except Exception as e:
-                print(f"⚠️ 無法點擊第三層按鈕: {e}")
+                print(f"⚠️ 處理第三層按鈕發生錯誤: {e}")
 
             # 擷取內文
             html_content = page.content()
+            
+            # ✅ 儲存狀態 (包含 Cookies 與 LocalStorage)
+            # 下次執行 new_context 時會自動載入，遇到 NHK 確認條款就不會再跳出
+            context.storage_state(path=state_path)
+            
             browser.close()
             
             soup = BeautifulSoup(html_content, 'html.parser')

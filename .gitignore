@@ -28,3 +28,4 @@ Thumbs.db
 
 # Data
 data/news_db_test.json
+data/playwright_state.json
