@@ -127,9 +127,13 @@ if app_mode == MODE_NEWS:
     if 'timestamp' in df_news.columns:
         df_news = df_news.sort_values('timestamp', ascending=False)
 
-    news_titles = df_news['title'].tolist()
-    selected_title = st.sidebar.selectbox("請選擇一篇新聞", news_titles)
-    current_article = df_news[df_news['title'] == selected_title].iloc[0]
+    # ✅ 優化：改用 index (文章 ID) 作為 selectbox 的值，並用 format_func 顯示標題
+    selected_aid = st.sidebar.selectbox(
+        "請選擇一篇新聞", 
+        options=df_news.index.tolist(),
+        format_func=lambda x: df_news.loc[x, 'title']
+    )
+    current_article = df_news.loc[selected_aid]
 
     # --- 核心邏輯：即時獲取內文 ---
     # 優先使用資料庫中的內容，如果沒有才即時抓取 (理論上 sync_news 跑過後都會有)
@@ -153,17 +157,22 @@ if app_mode == MODE_NEWS:
         
         if 'translations' not in st.session_state:
             st.session_state.translations = {}
+        
+        # ✅ 使用文章 ID 進行隔離，避免換文章時看到舊翻譯
+        if selected_aid not in st.session_state.translations:
+            st.session_state.translations[selected_aid] = {}
 
         for i, para in enumerate(paragraphs):
             st.write(para)
             # 每段提供翻譯按鈕
-            if st.button(f"翻譯第 {i+1} 段", key=f"btn_{i}"):
+            # ✅ Button 的 Key 也加上文章 ID，避免 Streamlit 的 Widget ID 衝突
+            if st.button(f"翻譯第 {i+1} 段", key=f"btn_{selected_aid}_{i}"):
                 with st.spinner("翻譯中..."):
                     translated = translate_text(para)
-                    st.session_state.translations[i] = translated
+                    st.session_state.translations[selected_aid][i] = translated
             
-            if i in st.session_state.translations:
-                st.info(st.session_state.translations[i])
+            if i in st.session_state.translations[selected_aid]:
+                st.info(st.session_state.translations[selected_aid][i])
 
     with col2:
         st.subheader("📊 JLPT 全文難度分析")
