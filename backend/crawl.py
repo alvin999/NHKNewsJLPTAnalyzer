@@ -99,18 +99,27 @@ def bypass_nhk_modals(page):
         
     # 2. 擊穿第三層
     try:
+        # 使用更精確的定位方式
+        # 1) 優先使用 Role + Name
         btn_text = page.get_by_role("button", name="確認しました / I understand")
-        btn_class = page.locator("button.esl7kn2s")
+        # 2) 輔助使用 Class + Filter (限定包含特定內容)
+        btn_class = page.locator("button.esl7kn2s").filter(has_text="確認しました / I understand")
+        
         target_btn = None
         
-        if btn_text.is_visible(): target_btn = btn_text
-        elif btn_class.is_visible(): target_btn = btn_class
+        # 檢查可見性 (這裡使用 count() 避免 strict mode 崩潰)
+        if btn_text.count() > 0 and btn_text.first.is_visible():
+            target_btn = btn_text.first
+        elif btn_class.count() > 0 and btn_class.first.is_visible():
+            target_btn = btn_class.first
         else:
             # 如果還是沒看到，嘗試捲動一次
             page.mouse.wheel(0, 1000)
             page.wait_for_timeout(1000)
-            if btn_text.is_visible(): target_btn = btn_text
-            elif btn_class.is_visible(): target_btn = btn_class
+            if btn_text.count() > 0 and btn_text.first.is_visible():
+                target_btn = btn_text.first
+            elif btn_class.count() > 0 and btn_class.first.is_visible():
+                target_btn = btn_class.first
 
         if target_btn:
             target_btn.scroll_into_view_if_needed()
@@ -131,7 +140,9 @@ def fetch_article_full_text(url, page=None):
             page.goto(url, wait_until="domcontentloaded")
             
             # 【方案 A】直接偵測遮罩元素
-            if page.locator("button.esl7kn2s").is_visible() or page.get_by_role("button", name="確認しました / I understand").is_visible():
+            # 使用 count() 檢查以避免 strict mode violation
+            if page.locator("button.esl7kn2s").filter(has_text="確認しました / I understand").count() > 0 or \
+               page.get_by_role("button", name="確認しました / I understand").count() > 0:
                 print(f"⚠️ 偵測到遮罩層，嘗試進行穿透...")
                 bypass_nhk_modals(page)
             
@@ -143,7 +154,7 @@ def fetch_article_full_text(url, page=None):
                 temp_page = context.new_page()
                 temp_page.goto(url, wait_until="domcontentloaded")
                 
-                if temp_page.locator("button.esl7kn2s").is_visible():
+                if temp_page.locator("button.esl7kn2s").filter(has_text="確認しました / I understand").count() > 0:
                     bypass_nhk_modals(temp_page)
                 
                 html_content = temp_page.content()
