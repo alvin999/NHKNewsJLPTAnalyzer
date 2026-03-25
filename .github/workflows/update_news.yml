@@ -1,9 +1,9 @@
 name: Daily News Sync
 
 on:
-  schedule:
-    # 每天 UTC 時間 20:00 (台灣時間 04:00) 執行
-    - cron: '0 20 * * *'
+#   schedule:
+#     # 每天 UTC 時間 20:00 (台灣時間 04:00) 執行
+#     - cron: '0 20 * * *'
   workflow_dispatch: # 允許手動點擊按鈕觸發
 
 permissions:
